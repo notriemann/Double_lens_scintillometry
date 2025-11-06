@@ -230,11 +230,11 @@ def observations(d_s1, xi1, v1,
                  d_s2, xi2, v2,
                  d_p, vpsr, dp_angle,
                  vearth, e_angle,
-                 N1, N2,
-                 Amp1 , Amp2 ,
-                 sig1 , sig2 ,
+                 N1 = 10, N2 = 10,
+                 Amp1 = 0.1, Amp2 = 0.1,
+                 sig1 =0.5, sig2 =0.5,
                  scr1_scale = 1., scr2_scale = 1.,
-                 shift1 = 0., shift2 = 0. ):
+                 shift1 = 0., shift2 = 0. , p11 = None, p22 = None):
     
     """
     Simulate a wavefield through two thin scattering screens.
@@ -302,14 +302,18 @@ def observations(d_s1, xi1, v1,
         encountering either screen (i.e., unscattered component).
         
     """
-    
-    p1 = ( scr1_scale * np.linspace(-1., 1., N1) + shift1 ) << u.AU
+    if p11 is None : 
+        p1 = ( scr1_scale * np.linspace(-1., 1., N1) + shift1 ) << u.AU
+    else:
+        p1 = np.copy(p11) 
     #p1 = ( scr1_scale * np.linspace(-0.99, 0.99, N1) + shift1) << u.AU
     m1 = np.exp(-0.5*(p1/(sig1*u.AU))**2)
     m1 *= Amp1
     
-    
-    p2 = ( scr2_scale * np.linspace(-1., 1., N2) + shift2 ) << u.AU
+    if p22 is None:
+        p2 = ( scr2_scale * np.linspace(-1., 1., N2) + shift2 ) << u.AU 
+    else:
+        p2 = np.copy(p22)
     m2 = np.exp(-0.5*(p2/(sig2*u.AU))**2)
     m2 *= Amp2
     
