@@ -13,9 +13,9 @@ from astropy.coordinates import (
 )
 
 from astropy.time import Time
-from screenpkg.screens.screen import Source, Screen1D, Telescope
-from screenpkg.screens.fields import phasor
-from screenpkg.screens.visualization import axis_extent
+from screens.screen import Source, Screen1D, Telescope
+from screens.fields import phasor
+from screens.visualization import axis_extent
 
 def get_vearth(psrname, mjds):
     
