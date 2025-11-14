@@ -420,7 +420,7 @@ def observations_plot(d_s1, xi1, v1,
 
 
 
-def plot_screen(ax, s, d, pos_sel=(), color='black', mult = 1., point_sizes = 50, sl = 1., xy_lim = 1, **kwargs):
+def plot_screen(ax, s, d, pos_sel=(), color='black', mult = 1., point_sizes = 50, sl = 1., xy_lim = 1, ndays = 10, **kwargs):
     
     d_unit = u.pc
     tau_unit = u.us
@@ -446,7 +446,7 @@ def plot_screen(ax, s, d, pos_sel=(), color='black', mult = 1., point_sizes = 50
             ax.plot(upos.x.to_value(u.AU) * mult, upos.y.to_value(u.AU) * mult,
                     np.ones(2) * d, c=color, linestyle='-')
     elif s.vel.norm() != 0:
-        dp = s.vel * 15 * u.day
+        dp = s.vel * ndays * u.day
         ax.quiver(spos.x.to_value(u.AU), spos.y.to_value(u.AU), d,
                 dp.x.to_value(u.AU), dp.y.to_value(u.AU), np.zeros(1),
                 color='k',
@@ -481,7 +481,6 @@ def plot_screen2(ax, s, d, pos_sel=(), color='black', mult = 1.,
                     np.ones(2) * d, c=color, linestyle=':')
             upos = pos + (ZHAT.cross(s.normal) * ([-xy_lim, xy_lim] * u.AU))
             
-            print(upos.x.shape)
             ax.plot(upos.x.to_value(u.AU) * mult, upos.y.to_value(u.AU) * mult,
                     np.ones(2) * d, c=color, linestyle='-')
             
@@ -598,3 +597,13 @@ def plot_trajectories(  obs1, obs2, obs12, p1_sel, p2_sel, p12_sel, ax_3d, xi_gi
         ).transpose(tuple(range(2, len(pshape)+2)) + (0, 1))
         for (_x, _y, _z) in xyz[path_sel].reshape((-1,)+xyz.shape[-2:]):
             ax_3d.plot(_x, _y, _z, color=color, linestyle=':', alpha = 0.1, lw = 3)
+            
+def get_plot_data(all_obs):
+    tau_unit = u.us
+    taudot_unit = u.us/u.day
+    return [(
+        obs.tau.to_value(tau_unit).ravel(),
+        obs.taudot.to_value(taudot_unit).ravel(),
+        (obs.source.pos.xyz[:2]
+         / obs.distance).to_value("mas", u.dimensionless_angles())
+    ) for obs in all_obs]
