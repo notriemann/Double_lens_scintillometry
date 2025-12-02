@@ -75,11 +75,90 @@ def screen_1d_curvature(d_p, vpsr, dp_angle, vearth, e_angle, ds1, xi1, v1, freq
         return eta1
     
     
-    
 def interaction_arcs(d_p, vpsr, dp_angle, vearth, e_angle, ds1, xi1, v1, ds2, xi2, v2, freq):
     
     """
     Function to calculate interaction arcs curvatures, effectice distance and velocity given initial two screen parameters
+    """
+    
+    #some useful relations
+    Vex = vearth * np.cos(e_angle) 
+    Vey = vearth * np.sin(e_angle)
+    vpx = vpsr * np.cos(dp_angle) 
+    vpy = vpsr * np.sin(dp_angle) 
+    e1 = xi1 + np.pi * u.rad
+    e2 = xi2 + np.pi * u.rad
+    vs1 = v1
+    vs2 = v2
+    s12 = 1 - ds1 / ds2
+    s1p = 1 - ds1 / d_p
+    d = e2 - e1
+    
+    
+    #computing the parameters for CASE I interaction arc
+    sig2 = np.sin(d) * (s12 - s1p) / (s1p + (s12 - s1p)*np.cos(d)**2 ) 
+    sig1 = np.cos(d) * sig2
+
+    deff_int_1 = ( 
+                + ds1  
+                + ds1 * sig1**2 
+                + ds1**2 / (ds2 - ds1) 
+                + (ds2 * sig2)**2 / (d_p - ds2)
+                + 2 * ( ds1 * ds2 * sig2 * np.sin(d) ) / (ds2 - ds1)
+                + ( (ds1 * sig1)**2 + (ds2 * sig2)**2 - 2 * ds1 * ds2 * sig1 * sig2 * np.cos(d)) / (ds2 - ds1) 
+                 ).to(u.pc)
+    
+    veff_int_1 = ( 
+              Vex * (np.sin(e1 + np.arctan(sig1) )) * np.sqrt(1 + sig1**2)
+            + Vey * (np.cos(e1 + np.arctan(sig1) )) * np.sqrt(1 + sig1**2)
+            + vpx * ds2 / (d_p - ds2) * (np.sin(e2 + np.pi/2 * u.rad )) * sig2
+            + vpy * ds2 / (d_p - ds2) * (np.cos(e2 + np.pi/2 * u.rad )) * sig2
+            - ( -ds1 * vs1 / (ds2 - ds1) 
+               + ds1 * vs2 * np.cos(d) / (ds2 - ds1) 
+               - vs1 
+               - np.sin(d) / (ds2 - ds1) * (- ds1 * sig1 * vs2 + ds2 * sig2 * vs1) )
+           ).to(u.km / u.s)
+    
+    eta_int_1 = (deff_int_1 / 2 * const.c / veff_int_1**2 / freq**2).to(u.s**3)
+    
+    
+    #computing the parameters for CASE II interaction arc
+    gam2 = -np.sin(d) * np.cos(d) * (s12 - s1p) / (s1p + (s12 - s1p)*np.cos(d)**2 ) 
+    gam1 = np.sin(d) * s1p / (s1p + (s12 - s1p) * np.cos(d)**2 ) 
+    
+    deff_int_2 = (
+                ds1 * gam1**2 
+                + ds2**2 / (d_p - ds2)
+                + ds2**2 * gam2**2 / (d_p - ds2)
+                + ds2**2 / (ds2 - ds1)
+                - 2 * ds1 * ds2 * gam1 * np.sin(d) / (ds2 - ds1)
+                + (ds1**2 * gam1**2 + ds2**2 * gam2**2 - 2 * ds1 * ds2 * gam1 * gam2 * np.cos(d)) / (ds2 - ds1)
+                ).to(u.pc)
+
+    veff_int_2 = ( 
+              Vex * (np.sin(e1 + np.pi/2 * u.rad )) * gam1
+            + Vey * (np.cos(e1 + np.pi/2 * u.rad )) * gam1
+            + vpx * ds2 / (d_p - ds2) * (np.sin(e2 + np.arctan(gam2) )) * np.sqrt( 1 + gam2**2)
+            + vpy * ds2 / (d_p - ds2) * (np.cos(e2 + np.arctan(gam2) )) * np.sqrt( 1 + gam2**2)
+            - ( ds2 * vs1 * np.cos(d) / (ds2 - ds1)
+               - ds2 * vs2 / (ds2 - ds1)
+               - ds2 * vs2 / (d_p - ds2)
+               + np.sin(d) * (ds1 * gam1 * vs2 - ds2 * gam2 * vs1) / (ds2 - ds1)
+                )
+           ).to(u.km / u.s)
+    
+    eta_int_2 = (deff_int_2 / 2 * const.c / veff_int_2**2 / freq**2).to(u.s**3)
+    
+    
+    return eta_int_1, eta_int_2, deff_int_1, deff_int_2, veff_int_1, veff_int_2
+    
+    
+    
+def interaction_arcs_old(d_p, vpsr, dp_angle, vearth, e_angle, ds1, xi1, v1, ds2, xi2, v2, freq):
+    
+    """
+    Function to calculate interaction arcs curvatures, effectice distance and velocity given initial two screen parameters
+    Old function as it adjusts for using a different angle/velocity convention
     """
     
     #some useful relations
@@ -420,17 +499,22 @@ def observations_plot(d_s1, xi1, v1,
 
 
 
-def plot_screen(ax, s, d, pos_sel=(), color='black', mult = 1., point_sizes = 50, sl = 1., xy_lim = 1, ndays = 10, **kwargs):
+def plot_screen(ax, s, d, pos_sel=(), color='black', mult = 1., point_sizes = 50, sl = 1., xy_lim = 1, ndays = 10, slx = None, sly = None, **kwargs):
     
     d_unit = u.pc
     tau_unit = u.us
     taudot_unit = u.us/u.day
     
+    if slx == None:
+        slx = sl
+    if sly == None:
+        sly = sl
+    
     ZHAT = CartesianRepresentation(0., 0., 1., unit=u.one)
     d = d.to_value(u.pc)
     x = np.array(ax.get_xlim3d())
     y = np.array(ax.get_ylim3d())[:, np.newaxis]
-    ax.plot_surface([[-sl, sl]]*2, [[-sl]*2, [sl]*2], d*np.ones((2, 2)),
+    ax.plot_surface([[-slx, slx]]*2, [[-sly]*2, [sly]*2], d*np.ones((2, 2)),
                     alpha=0.1, color=color)
     x = ax.get_xticks()
     y = ax.get_yticks()[:, np.newaxis]
@@ -456,17 +540,23 @@ def plot_screen(ax, s, d, pos_sel=(), color='black', mult = 1., point_sizes = 50
                 normalize = False)
         
 def plot_screen2(ax, s, d, pos_sel=(), color='black', mult = 1., 
-                 point_sizes = 50, sl = 1., xy_lim = 1, termination = None, **kwargs):
+                 point_sizes = 50, sl = 1., xy_lim = 1, termination = None, 
+                 slx = None, sly = None, **kwargs):
     
     d_unit = u.pc
     tau_unit = u.us
     taudot_unit = u.us/u.day
     
+    if slx == None:
+        slx = sl
+    if sly == None:
+        sly = sl
+    
     ZHAT = CartesianRepresentation(0., 0., 1., unit=u.one)
     d = d.to_value(u.pc)
     x = np.array(ax.get_xlim3d())
     y = np.array(ax.get_ylim3d())[:, np.newaxis]
-    ax.plot_surface([[-sl, sl]]*2, [[-sl]*2, [sl]*2], d*np.ones((2, 2)),
+    ax.plot_surface([[-slx, slx]]*2, [[-sly]*2, [sly]*2], d*np.ones((2, 2)),
                     alpha=0.1, color=color)
     x = ax.get_xticks()
     y = ax.get_yticks()[:, np.newaxis]
@@ -607,3 +697,163 @@ def get_plot_data(all_obs):
         (obs.source.pos.xyz[:2]
          / obs.distance).to_value("mas", u.dimensionless_angles())
     ) for obs in all_obs]
+
+
+def int_vlbi(pulsar_params, 
+             time, freq, dishes, 
+                 scr1_params,
+                 scr2_params,
+                 N1 = 10, N2 = 10,
+                 Amp1 = 0.1, Amp2 = 0.1,
+                 sig1 =0.5, sig2 =0.5,
+                 scr1_scale = 1., scr2_scale = 1.,
+                 shift1 = 0., shift2 = 0. , p11 = None, p22 = None, los_fac = 1., mag_mult = 1,):
+    """
+    Simulation Code
+
+    Parameters
+    ----------
+    pulsar : ~astropy.coordiantes.SkyCoord
+        Must have RA, Dec, distance, and proper motion.
+    d_scr : ~astropy.units.Quantity
+        Distance to screen from Earth.
+    v_scr : ~astropy.units.Quantity
+        Velocity of the screen along the line of images
+    pa_scr : ~astropy.units.Quantity
+        Orientation of line of images defined E of N
+    n_image : int
+        The number of images to simulate.
+    time : ~astropy.time.Time
+        Times of the observation, with shape (n_time, 1)
+    freq : ~astropy.units.Quantity
+        Array of channel frequencies, with shape (n_freq,)
+    dishes : dict of ~astropy.coordinates.EarthLocation
+        Keyed by the dish identifiers.
+    """
+    
+    RA, DEC, d_p, PMRA, PMDEC, vpsr, dp_angle = pulsar_params
+    d_s1, xi1, v1, = scr1_params
+    d_s2, xi2, v2, = scr2_params
+    
+    
+    if p11 is None : 
+        p1 = ( scr1_scale * np.linspace(-1., 1., N1) + shift1 ) << u.AU
+    else:
+        p1 = np.copy(p11) 
+    #p1 = ( scr1_scale * np.linspace(-0.99, 0.99, N1) + shift1) << u.AU
+    m1 = np.exp(-0.5*(p1/(sig1*u.AU))**2)
+    m1 *= Amp1
+    
+    if p22 is None:
+        p2 = ( scr2_scale * np.linspace(-1., 1., N2) + shift2 ) << u.AU 
+    else:
+        p2 = np.copy(p22)
+    m2 = np.exp(-0.5*(p2/(sig2*u.AU))**2)
+    m2 *= Amp2
+    
+    
+    #power that will pass through scr2 and can reach scr1 (closest to the Earth)
+    Sum2 = np.sqrt( 1. - np.sum( np.abs(m1)**2  ) )
+    #power that will pass through the screen closest to the pulsar 
+    #that is not scattered by the screen closest to the earth
+    Sum1 = np.sqrt( 1. - np.sum( np.abs(m2)**2  ) )
+    
+    #los power that can make it to Earth without being scattered by scr1 and scr2
+    sum_los = Sum1 * Sum2
+    
+    
+    pulsar_ = SkyCoord(ra=RA, dec=DEC,
+                  distance=d_p, pm_ra_cosdec=PMRA, pm_dec=PMDEC
+                  )
+    
+    pulsar_frame = SkyOffsetFrame(origin=pulsar_)
+    
+    vel_psr = CylindricalRepresentation(vpsr, dp_angle, 0.*u.km/u.s).to_cartesian()
+    
+
+    pulsar0 = Source(vel=vel_psr, magnification = 1. )
+    
+    normal1 = CylindricalRepresentation(1., 90.*u.deg - xi1, 0.).to_cartesian()
+    screen1 = Screen1D(normal=normal1, p=p1, v=v1, magnification= m1 / Sum1)
+    normal2 = CylindricalRepresentation(1., 90.*u.deg - xi2, 0.).to_cartesian()
+    screen2 = Screen1D(normal=normal2, p=p2, v=v2, magnification= m2 / Sum2)
+    
+    
+    
+    # Results to store (keyed by name)
+    uvw = {}
+    wavefields = {}
+    
+    # Determine Earth core position in pulsar frame (relative to SSB)
+    center_of_earth = EarthLocation(0, 0, 0, unit=u.m).get_itrs(Time(time.to_value('mjd').mean(), format = 'mjd'))
+    center_of_earth = center_of_earth.transform_to(pulsar_frame).cartesian
+    
+    # Loop over all dishes
+    for name, loc in dishes.items():
+        # Get dish location to pulsar frame at the middle of the observation
+        # (here, gcrs instead of itrs to also get velocity).
+        dish_pos = loc.get_gcrs(Time(time.to_value('mjd').mean(), format = 'mjd')).transform_to(pulsar_frame).cartesian
+
+        # Dish position relative to earth center in UVW, and velocity.
+        dish_uvw = dish_pos.without_differentials() - center_of_earth
+        dish_vel = dish_pos.differentials["s"].to_cartesian()
+
+        uvw[name] = dish_uvw
+
+        # Create telescope and observe the screen with it.
+        telescope = Telescope(
+            pos=CartesianRepresentation(dish_uvw.y, dish_uvw.z, dish_uvw.x),
+            vel=CartesianRepresentation(dish_vel.y, dish_vel.z, dish_vel.x * 0.),
+        )
+
+        
+        obs0 = telescope.observe(source=pulsar0, distance=d_p)
+        
+        
+        #source -> screen1 -> obs
+        obs_scr1_pulsar = screen1.observe(source=pulsar0, distance=d_p-d_s1)
+        obs1 = telescope.observe(source=obs_scr1_pulsar, distance=d_s1)
+        
+        
+        #source -> screen2 -> obs
+        obs_scr2_pulsar2 = screen2.observe(source=pulsar0, distance=d_p-d_s2)
+        obs2 = telescope.observe(source=obs_scr2_pulsar2, distance=d_s2)
+        
+        #setting observation with screen2
+        #source -> screen2 -> screen1 -> obs
+        obs_scr2_pulsar = screen2.observe(source=pulsar0, distance=d_p-d_s2)
+        obs_scr2_pulsar2 = screen1.observe(source=obs_scr2_pulsar, distance=d_s2-d_s1)
+        obs12 = telescope.observe(source=obs_scr2_pulsar2, distance=d_s1)
+
+
+        # Create wavefield.
+        brightness = np.hstack([obs1.brightness.ravel() *  los_fac,
+                        obs12.brightness.ravel() *  los_fac * mag_mult ,
+                        obs2.brightness.ravel() *  los_fac ,
+                        obs0.brightness.ravel() *  los_fac])
+        
+        tau0 = np.hstack([obs1.tau.ravel(),
+                      obs12.tau.ravel(),
+                      obs2.tau.ravel(),
+                      obs0.tau.ravel()])
+
+        taudot = np.hstack([obs1.taudot.ravel(),
+                            obs12.taudot.ravel(),
+                            obs2.taudot.ravel(),
+                            obs0.taudot.ravel()])
+        
+        
+        t = (time-time[0]).to(u.min)[:, np.newaxis]
+        f = np.copy(freq)
+        
+        tau_t = tau0[:, np.newaxis, np.newaxis] + taudot[:, np.newaxis, np.newaxis] * t
+        ph = phasor(freq, tau_t, linear_axis=0)
+        wavefields[name] = np.sum(ph * brightness[:, np.newaxis, np.newaxis].to_value(u.one), axis=0).T
+
+    # Create visibilities
+    spectra = {}
+    for i, name1 in enumerate(dishes):
+        for name2 in list(dishes)[i:]:
+            spectra[name1, name2] = wavefields[name1] * wavefields[name2].conj()
+
+    return spectra, uvw, wavefields
